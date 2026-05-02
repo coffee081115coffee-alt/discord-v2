@@ -13,6 +13,21 @@ app.use(express.static(__dirname));
 let onlineUsers = {}; 
 
 io.on('connection', (socket) => {
+    // --- 新增：處理刪除訊息 ---
+    socket.on('delete message', (id) => {
+        console.log('準備刪除訊息 ID:', id);
+        // 從資料庫中刪除
+        db.remove({ _id: id }, {}, (err, numRemoved) => {
+            if (err) {
+                console.error('刪除失敗:', err);
+            } else {
+                console.log('成功從資料庫刪除:', numRemoved, '條訊息');
+                // 通知所有人「訊息已刪除」，讓大家網頁自動重新整理
+                io.emit('message deleted');
+            }
+        });
+    });
+    
     console.log('一位使用者連線了');
 
     // 當用戶設定暱稱時
