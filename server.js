@@ -9,55 +9,50 @@ const db = new Datastore({ filename: 'messages.db', autoload: true });
 
 app.use(express.static(__dirname));
 
-// --- 新增：記錄在線用戶 ---
 let onlineUsers = {}; 
 
 io.on('connection', (socket) => {
-    // --- 新增：處理刪除訊息 ---
-    socket.on('delete message', (id) => {
-        console.log('準備刪除訊息 ID:', id);
-        // 從資料庫中刪除
-        db.remove({ _id: id }, {}, (err, numRemoved) => {
-            if (err) {
-                console.error('刪除失敗:', err);
-            } else {
-                console.log('成功從資料庫刪除:', numRemoved, '條訊息');
-                // 通知所有人「訊息已刪除」，讓大家網頁自動重新整理
-                io.emit('message deleted');
-            }
+    // 1. 加入頻道 (預設加入 '一般')
+    socket.on('join channel', (channelName) => {
+        socket.join(channelName);
+        // 只傳送該頻道的歷史訊息
+        db.find({ channel: channelName }).sort({ timestamp: 1 }).exec((err, docs) => {
+            socket.emit('load history', docs);
         });
     });
-    
-    console.log('一位使用者連線了');
 
-    // 當用戶設定暱稱時
-    socket.on('set nickname', (name) => {
-        onlineUsers[socket.id] = name || "無名氏";
-        io.emit('update users', Object.values(onlineUsers)); // 廣播給所有人最新名單
+    // 2. 設定個人資料 (暱稱 + 頭像)
+    socket.on('set profile', (data) => {
+        onlineUsers[socket.id] = {
+            name: data.name || "無名氏",
+            avatar: data.avatar || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+        };
+        io.emit('update users', Object.values(onlineUsers));
     });
 
-    db.find({}).sort({ timestamp: 1 }).exec((err, docs) => {
-        socket.emit('load history', docs);
-    });
-
+    // 3. 傳送訊息 (包含頻道資訊)
     socket.on('chat message', (data) => {
         const msgData = {
             ...data,
             _id: Date.now().toString(),
+            channel: data.channel || '一般', // 紀錄這則訊息屬於哪個頻道
             timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: Date.now()
         };
         db.insert(msgData);
-        io.emit('chat message', msgData);
+        // 只廣播給在同一個頻道的人
+        io.to(data.channel).emit('chat message', msgData);
+    });
+
+    socket.on('delete message', (id) => {
+        db.remove({ _id: id }, {}, () => { io.emit('message deleted'); });
     });
 
     socket.on('disconnect', () => {
-        delete onlineUsers[socket.id]; // 移除離開的人
+        delete onlineUsers[socket.id];
         io.emit('update users', Object.values(onlineUsers));
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 伺服器已在端口 ${PORT} 啟動`);
-});
+server.listen(PORT, () => { console.log(`🚀 Server running on ${PORT}`); });
