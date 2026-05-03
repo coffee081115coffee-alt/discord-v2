@@ -48,7 +48,7 @@
         </div>
         
         <div id="user-profile-settings">
-            <img id="user-avatar-display" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" onclick="changeAvatar()">
+            <img id="user-avatar-display" src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" onclick="changeAvatar()">
             <div style="flex:1">
                 <input id="my-name" type="text" value="" style="font-size: 0.8em; width: 100%" onchange="updateProfile()">
             </div>
@@ -76,7 +76,8 @@
     <script>
         const socket = io();
         let currentChannel = '一般';
-        let myAvatar = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        
+        let myAvatar = "https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png";
 
         // 初始化
         socket.emit('join channel', currentChannel);
@@ -137,7 +138,8 @@
             const item = document.createElement('li');
             item.className = 'msg-item';
             item.innerHTML = `
-                <img class="msg-avatar" src="${data.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
+                // 找到這行裡面的備用網址
+                <img class="msg-avatar" src="${data.avatar || 'https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png'}">
                 <div>
                     <div><span style="font-weight:bold; color:white">${data.name}</span> <span style="font-size:0.7em; color:#949ba4">${data.timeStr || ''}</span></div>
                     <div style="margin-top:4px">${data.text || `<img src="${data.image}" style="max-width:200px; border-radius:8px">`}</div>
