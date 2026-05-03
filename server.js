@@ -12,16 +12,17 @@ app.use(express.static(__dirname));
 let onlineUsers = {}; 
 
 io.on('connection', (socket) => {
-    // 1. 加入頻道 (預設加入 '一般')
+    console.log('一位使用者連線了');
+
+    // 1. 加入頻道
     socket.on('join channel', (channelName) => {
         socket.join(channelName);
-        // 只傳送該頻道的歷史訊息
         db.find({ channel: channelName }).sort({ timestamp: 1 }).exec((err, docs) => {
             socket.emit('load history', docs);
         });
     });
 
-    // 2. 設定個人資料 (暱稱 + 頭像)
+    // 2. 設定個人資料
     socket.on('set profile', (data) => {
         onlineUsers[socket.id] = {
             name: data.name || "無名氏",
@@ -30,29 +31,35 @@ io.on('connection', (socket) => {
         io.emit('update users', Object.values(onlineUsers));
     });
 
-    // 3. 傳送訊息 (包含頻道資訊)
+    // 3. 傳送訊息
     socket.on('chat message', (data) => {
         const msgData = {
             ...data,
             _id: Date.now().toString(),
-            channel: data.channel || '一般', // 紀錄這則訊息屬於哪個頻道
+            channel: data.channel || '一般',
             timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: Date.now()
         };
         db.insert(msgData);
-        // 只廣播給在同一個頻道的人
         io.to(data.channel).emit('chat message', msgData);
     });
 
+    // 4. 刪除訊息 (修正：這裡把 ID 傳回去，前端才不會閃退)
     socket.on('delete message', (id) => {
-        db.remove({ _id: id }, {}, () => { io.emit('message deleted'); });
+        db.remove({ _id: id }, {}, (err, numRemoved) => {
+            io.emit('message deleted', id); 
+        });
     });
 
+    // 5. 離線處理 (新增：不然線上人數會壞掉)
     socket.on('disconnect', () => {
         delete onlineUsers[socket.id];
         io.emit('update users', Object.values(onlineUsers));
+        console.log('一位使用者離開了');
     });
-});
+}); // <--- 原本漏掉的這個花括號補回來了
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 Server running on ${PORT}`); });
+server.listen(PORT, () => { 
+    console.log(`🚀 Server running on port ${PORT}`); 
+});

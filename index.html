@@ -2,99 +2,90 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>My Cool Discord 7.0 - Firebase Edition</title>
+    <title>My Discord 8.0 - Pro Edition</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
-    
     <style>
         :root { --bg-side: #2b2d31; --bg-main: #313338; --bg-input: #383a40; --text-main: #dbdee1; --discord-blurple: #5865f2; --danger: #ed4245; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
-        
-        /* 登入遮罩 */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #313338; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .login-btn { padding: 12px 24px; font-size: 1em; background: var(--discord-blurple); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .login-btn:hover { background: #4752c4; }
+        body { margin: 0; font-family: 'Whitney', 'Helvetica Neue', sans-serif; background-color: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-        /* 左側欄 */
-        #sidebar { width: 240px; background-color: var(--bg-side); display: flex; flex-direction: column; border-right: 1px solid #1e1f22; }
-        .side-header { padding: 12px; font-weight: bold; border-bottom: 1px solid #1e1f22; color: white; }
-        .channel-list { padding: 10px; flex: 1; }
-        .channel-item { padding: 10px; border-radius: 4px; cursor: pointer; color: #949ba4; margin-bottom: 2px; }
-        .channel-item:hover { background-color: #35373c; color: white; }
-        .channel-item.active { background-color: #3f4147; color: white; }
+        /* 登入遮罩 - 加上漸層感 */
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #23272a 0%, #313338 100%); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
-        /* 個人資料區 */
-        #user-profile-settings { padding: 10px; background: #232428; display: flex; align-items: center; gap: 10px; }
-        #user-avatar-display { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 2px solid transparent; }
-        #user-avatar-display:hover { border-color: white; }
-        
-        /* 聊天主區 */
+        /* 側邊欄美化 */
+        #sidebar { width: 240px; background-color: var(--bg-side); display: flex; flex-direction: column; }
+        .side-header { padding: 12px 16px; font-weight: bold; border-bottom: 1px solid #1e1f22; color: white; display: flex; align-items: center; justify-content: space-between; }
+        .category-title { font-size: 0.7em; font-weight: bold; color: #949ba4; padding: 18px 10px 8px 16px; text-transform: uppercase; }
+        .channel-item { padding: 8px 12px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: #949ba4; display: flex; align-items: center; gap: 6px; }
+        .channel-item::before { content: "#"; font-size: 1.2em; color: #80848e; }
+        .channel-item:hover { background: #35373c; color: #dbdee1; }
+        .channel-item.active { background: #3f4147; color: white; }
+
+        /* 聊天區美化 */
         #chat-main { flex: 1; display: flex; flex-direction: column; }
-        #header { padding: 12px 20px; border-bottom: 1px solid #1e1f22; font-weight: bold; color: white; display: flex; justify-content: space-between; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; list-style: none; margin: 0; }
-        .msg-item { display: flex; gap: 15px; margin-bottom: 16px; position: relative; }
-        .msg-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-        .delete-btn { position: absolute; right: 10px; top: 0; background: none; border: none; color: var(--danger); cursor: pointer; opacity: 0; }
-        .msg-item:hover .delete-btn { opacity: 0.6; }
+        #header { padding: 12px 20px; border-bottom: 1px solid #1e1f22; display: flex; align-items: center; gap: 10px; font-weight: bold; color: white; }
+        #messages { flex: 1; overflow-y: auto; padding: 10px 0; list-style: none; margin: 0; }
+        .msg-item { padding: 8px 20px; display: flex; gap: 16px; position: relative; transition: background 0.1s; }
+        .msg-item:hover { background-color: #2e3035; }
+        .msg-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-top: 2px; }
+        .msg-info { display: flex; align-items: baseline; gap: 8px; }
+        .author { color: white; font-weight: 500; cursor: pointer; }
+        .author:hover { text-decoration: underline; }
+        .time { color: #949ba4; font-size: 0.75em; }
+        .delete-btn { position: absolute; right: 20px; top: 10px; background: #313338; border: 1px solid #1e1f22; color: var(--danger); border-radius: 4px; cursor: pointer; opacity: 0; padding: 4px 8px; }
+        .msg-item:hover .delete-btn { opacity: 1; }
 
-        /* 輸入區 */
-        #input-area { padding: 20px; background-color: var(--bg-main); }
-        .input-box { background-color: var(--bg-input); padding: 10px 15px; border-radius: 8px; display: flex; gap: 12px; align-items: center; }
-        input { background: none; border: none; color: white; outline: none; flex: 1; font-size: 0.95em; }
+        /* 輸入區美化 */
+        #input-area { padding: 0 20px 24px 20px; }
+        .input-box { background-color: #383a40; padding: 11px 16px; border-radius: 8px; display: flex; gap: 15px; align-items: center; }
+        #msg { background: none; border: none; color: #dbdee1; flex: 1; font-size: 1em; outline: none; }
 
-        /* 右側欄 */
-        #user-sidebar { width: 200px; background-color: var(--bg-side); padding: 15px; border-left: 1px solid #1e1f22; }
-        .user-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; color: #949ba4; font-size: 0.9em; }
-        .user-item img { width: 24px; height: 24px; border-radius: 50%; }
+        /* 個人資料欄位 */
+        #user-profile-settings { padding: 10px; background: #232428; display: flex; align-items: center; gap: 10px; }
+        #user-avatar-display { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+
+        /* 捲軸美化 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #1e1f22; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div id="login-overlay">
-        <img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" width="80" style="margin-bottom:20px">
-        <h2 style="color:white; margin-bottom:20px;">歡迎登入 Coffee 的 Discord</h2>
-        <button class="login-btn" onclick="loginWithGoogle()">使用 Google 帳號登入</button>
+        <img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" width="100" style="margin-bottom:20px">
+        <h2 style="color:white;">準備好開始聊天了嗎？</h2>
+        <button class="login-btn" style="padding:12px 30px; background:var(--discord-blurple); color:white; border:none; border-radius:3px; cursor:pointer; font-weight:bold;" onclick="loginWithGoogle()">使用 Google 登入</button>
     </div>
 
     <div id="sidebar">
-        <div class="side-header">我的伺服器</div>
+        <div class="side-header">Coffee's World </div>
         <div class="channel-list">
-            <div class="channel-item active" onclick="switchChannel('一般', this)"># 一般</div>
-            <div class="channel-item" onclick="switchChannel('遊戲討論', this)"># 遊戲討論</div>
-            <div class="channel-item" onclick="switchChannel('廢文專區', this)"># 廢文專區</div>
+            <div class="category-title">文字頻道</div>
+            <div class="channel-item active" onclick="switchChannel('一般', this)">一般</div>
+            <div class="channel-item" onclick="switchChannel('遊戲討論', this)">遊戲討論</div>
+            <div class="channel-item" onclick="switchChannel('開發日誌', this)">開發日誌</div>
         </div>
-        
         <div id="user-profile-settings">
-            <img id="user-avatar-display" src="" title="點擊更換自訂頭像" onclick="changeAvatar()">
-            <div style="flex:1; overflow:hidden">
-                <input id="my-name" type="text" style="font-size: 0.85em; width: 100%; color: white;" onchange="updateProfile()">
-            </div>
+            <img id="user-avatar-display" src="" onclick="changeAvatar()">
+            <input id="my-name" type="text" style="background:none; border:none; color:white; font-size:0.8em; width:80px" onchange="updateProfile()">
         </div>
     </div>
 
     <div id="chat-main">
-        <div id="header">
-            <span># <span id="current-channel-name">一般</span></span>
-            <span id="user-count" style="font-size: 0.8em; color: #23a559;">● 連線中...</span>
-        </div>
+        <div id="header"> # <span id="current-channel-name">一般</span></div>
         <ul id="messages"></ul>
         <div id="input-area">
             <div class="input-box">
-                <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; color:#b5bac1; cursor:pointer; font-size:1.5em; padding:0">+</button>
+                <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; color:#b5bac1; font-size:1.5em; cursor:pointer">+</button>
                 <input type="file" id="fileInput" style="display:none" onchange="sendImg(this)">
                 <input id="msg" type="text" placeholder="傳送訊息..." onkeypress="if(event.key==='Enter')send()">
             </div>
         </div>
     </div>
 
-    <div id="user-sidebar">
-        <div style="font-size:0.75em; color:#949ba4; margin-bottom:10px; font-weight:bold; text-transform:uppercase;">線上成員</div>
-        <ul id="user-list" style="list-style:none; padding:0; margin:0"></ul>
-    </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // --- 1. Firebase 設定 (請把這段替換成你自己的) ---
+        // --- 1. Firebase 設定 (請確保填入你自己的 Config) ---
         const firebaseConfig = {
     apiKey: "AIzaSyD4rw-eMW1Fn4CgK6ho_aB-LYq9GeaXWzw",
     authDomain: "beta-discord.firebaseapp.com",
@@ -111,25 +102,27 @@
         const socket = io();
         let currentChannel = '一般';
         let myAvatar = "";
-        let myName = "";
 
-        // --- 2. 登入邏輯 ---
-        function loginWithGoogle() {
-            auth.signInWithPopup(provider).then((result) => {
-                const user = result.user;
-                myName = user.displayName;
+        // --- 2. 自動登入檢查 ---
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // 如果已經登入過，自動跳過遮罩
+                document.getElementById('my-name').value = user.displayName;
+                document.getElementById('user-avatar-display').src = user.photoURL;
                 myAvatar = user.photoURL;
-                
-                document.getElementById('my-name').value = myName;
-                document.getElementById('user-avatar-display').src = myAvatar;
                 document.getElementById('login-overlay').style.display = 'none';
-                
                 socket.emit('join channel', currentChannel);
                 updateProfile();
-            }).catch((err) => alert("登入失敗: " + err.message));
+            } else {
+                document.getElementById('login-overlay').style.display = 'flex';
+            }
+        });
+
+        function loginWithGoogle() {
+            auth.signInWithPopup(provider);
         }
 
-        // --- 3. 頻道與個人資料 ---
+        // --- 3. 頻道與資料 ---
         function switchChannel(name, el) {
             currentChannel = name;
             document.getElementById('current-channel-name').innerText = name;
@@ -140,57 +133,20 @@
         }
 
         function updateProfile() {
-            const name = document.getElementById('my-name').value;
-            socket.emit('set profile', { name, avatar: myAvatar });
+            socket.emit('set profile', { name: document.getElementById('my-name').value, avatar: myAvatar });
         }
 
         function changeAvatar() {
-            const newUrl = prompt("請貼上新的圖片網址：", myAvatar);
-            if(newUrl) {
-                myAvatar = newUrl;
-                document.getElementById('user-avatar-display').src = newUrl;
-                updateProfile();
-            }
+            const url = prompt("貼上圖片網址：", myAvatar);
+            if(url) { myAvatar = url; document.getElementById('user-avatar-display').src = url; updateProfile(); }
         }
 
-        // --- 4. 訊息與 Socket 邏輯 ---
-        socket.on('update users', (users) => {
-            document.getElementById('user-count').innerText = `● ${users.length} 人在線上`;
-            document.getElementById('user-list').innerHTML = users.map(u => `
-                <li class="user-item"><img src="${u.avatar}"> ${u.name}</li>
-            `).join('');
-        });
-
-        socket.on('load history', (docs) => {
-            document.getElementById('messages').innerHTML = '';
-            docs.forEach(addMessageToUI);
-        });
-
+        // --- 4. 訊息處理 (優化刪除) ---
         function send() {
             const msg = document.getElementById('msg').value;
-            if (msg.trim()) {
-                socket.emit('chat message', { 
-                    name: document.getElementById('my-name').value,
-                    avatar: myAvatar,
-                    text: msg,
-                    channel: currentChannel 
-                });
+            if(msg.trim()) {
+                socket.emit('chat message', { name: document.getElementById('my-name').value, avatar: myAvatar, text: msg, channel: currentChannel });
                 document.getElementById('msg').value = '';
-            }
-        }
-
-        function sendImg(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    socket.emit('chat message', {
-                        name: document.getElementById('my-name').value,
-                        avatar: myAvatar,
-                        image: e.target.result,
-                        channel: currentChannel
-                    });
-                };
-                reader.readAsDataURL(input.files[0]);
             }
         }
 
@@ -198,15 +154,15 @@
             const list = document.getElementById('messages');
             const item = document.createElement('li');
             item.className = 'msg-item';
-            const content = data.text 
-                ? `<div style="margin-top:4px">${data.text}</div>` 
-                : `<img src="${data.image}" style="max-width:300px; border-radius:8px; margin-top:8px">`;
-
+            item.setAttribute('data-id', data._id); // 標記 ID
             item.innerHTML = `
                 <img class="msg-avatar" src="${data.avatar || 'https://rb.gy/9n9smu'}">
-                <div>
-                    <div><span style="font-weight:bold; color:white">${data.name}</span> <span style="font-size:0.7em; color:#949ba4">${data.timeStr || ''}</span></div>
-                    ${content}
+                <div style="flex:1">
+                    <div class="msg-info">
+                        <span class="author">${data.name}</span>
+                        <span class="time">${data.timeStr || ''}</span>
+                    </div>
+                    <div style="color:#dbdee1; margin-top:2px">${data.text || `<img src="${data.image}" style="max-width:300px; border-radius:8px">`}</div>
                 </div>
                 <button class="delete-btn" onclick="deleteMsg('${data._id}')">🗑️</button>
             `;
@@ -214,12 +170,20 @@
             list.scrollTop = list.scrollHeight;
         }
 
-        socket.on('chat message', (data) => {
-            if(data.channel === currentChannel) addMessageToUI(data);
-        });
+        socket.on('chat message', (data) => { if(data.channel === currentChannel) addMessageToUI(data); });
+        socket.on('load history', (docs) => { document.getElementById('messages').innerHTML = ''; docs.forEach(addMessageToUI); });
 
-        function deleteMsg(id) { if(confirm('確定要刪除這則訊息？')) socket.emit('delete message', id); }
-        socket.on('message deleted', () => { location.reload(); });
+        function deleteMsg(id) {
+            if(confirm('確定要刪除？')) socket.emit('delete message', id);
+        }
+
+        // --- 優化：收到刪除通知時，只移除該訊息，不重新整理 ---
+        socket.on('message deleted', (deletedId) => {
+            const msgEl = document.querySelector(`[data-id="${deletedId}"]`);
+            if(msgEl) msgEl.remove();
+            // 如果後端沒回傳 ID，這行 location.reload() 可以暫留作為保險
+            // 但建議後端修改 io.emit('message deleted', id);
+        });
     </script>
 </body>
 </html>
