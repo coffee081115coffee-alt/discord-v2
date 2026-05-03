@@ -2,133 +2,149 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Clone v10</title>
+    <title>Discord Ultimate Clone</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* Discord 官方配色 */
+        /* 1:1 復刻配色與字體 */
+        @font-face { font-family: 'GG Sans'; src: local('Segoe UI'); }
         :root {
-            --bg-servers: #1e1f22;
-            --bg-channels: #2b2d31;
-            --bg-chat: #313338;
-            --bg-members: #2b2d31;
-            --bg-user-bar: #232428;
-            --discord-blurple: #5865f2;
-            --text-normal: #dbdee1;
-            --text-muted: #949ba4;
-            --header-primary: #ffffff;
+            --bg-servers: #1e1f22; --bg-channels: #2b2d31; --bg-chat: #313338;
+            --bg-members: #2b2d31; --bg-user: #232428; --blurple: #5865f2;
+            --text-normal: #dbdee1; --text-muted: #949ba4; --header-white: #f2f3f5;
+            --msg-hover: #2e3035;
         }
 
-        body { margin: 0; font-family: 'GG Sans', 'Whitney', 'Helvetica Neue', sans-serif; display: flex; height: 100vh; background-color: var(--bg-servers); color: var(--text-normal); overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'GG Sans', sans-serif; display: flex; height: 100vh; background: var(--bg-servers); color: var(--text-normal); overflow: hidden; }
 
-        /* 1. 最左側伺服器列表 (Server List) */
-        #server-sidebar { width: 72px; background: var(--bg-servers); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; }
-        .server-icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; color: white; overflow: hidden; }
-        .server-icon:hover { border-radius: 16px; background: var(--discord-blurple); }
-        .server-icon img { width: 100%; height: 100%; object-fit: cover; }
-        .divider { width: 32px; height: 2px; background: #35363c; margin: 4px 0; }
+        /* 側邊欄：伺服器 */
+        #server-list { width: 72px; padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .s-icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center; position: relative; }
+        .s-icon:hover { border-radius: 16px; background: var(--blurple); color: white; }
+        .s-icon.active::before { content: ""; position: absolute; left: -12px; width: 4px; height: 40px; background: white; border-radius: 0 4px 4px 0; }
 
-        /* 2. 次左側頻道列表 (Channel List) */
-        #channel-sidebar { width: 240px; background: var(--bg-channels); display: flex; flex-direction: column; }
-        .server-header { height: 48px; padding: 0 16px; display: flex; align-items: center; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); color: white; cursor: pointer; }
-        .server-header:hover { background: rgba(255,255,255,0.05); }
-        .channel-list { flex: 1; padding: 12px 8px; overflow-y: auto; }
-        .channel-category { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 10px 8px 4px; text-transform: uppercase; }
-        .channel-item { padding: 6px 8px; margin: 2px 0; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
-        .channel-item:hover { background: #35373c; color: #dbdee1; }
-        .channel-item.active { background: #3f4147; color: white; }
-        .channel-item::before { content: "#"; font-size: 1.2em; color: #80848e; }
+        /* 側邊欄：頻道 */
+        #channel-bar { width: 240px; background: var(--bg-channels); display: flex; flex-direction: column; border-top-left-radius: 8px; }
+        .header { height: 48px; border-bottom: 1px solid rgba(0,0,0,0.2); display: flex; align-items: center; padding: 0 16px; font-weight: bold; color: white; cursor: pointer; }
+        .header:hover { background: rgba(255,255,255,0.05); }
+        .c-items { flex: 1; padding: 12px 8px; }
+        .cat { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 10px 8px 4px; }
+        .c-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; color: var(--text-muted); margin-bottom: 2px; }
+        .c-item:hover { background: #35373c; color: var(--text-normal); }
+        .c-item.active { background: #3f4147; color: white; }
+        .c-item::before { content: "#"; margin-right: 6px; font-size: 1.2em; color: #80848e; }
 
-        /* 個人狀態欄 (User Bar) */
-        .user-bar { height: 52px; background: var(--bg-user-bar); padding: 0 8px; display: flex; align-items: center; gap: 8px; }
-        .user-info { flex: 1; overflow: hidden; cursor: pointer; padding: 4px; border-radius: 4px; }
-        .user-info:hover { background: rgba(255,255,255,0.05); }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; }
-        .user-name { font-size: 14px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .user-tag { font-size: 12px; color: var(--text-muted); }
+        /* 使用者資訊欄位 (最像的地方) */
+        #user-bar { height: 52px; background: var(--bg-user); padding: 0 8px; display: flex; align-items: center; gap: 8px; }
+        .u-info { flex: 1; padding: 4px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .u-info:hover { background: rgba(255,255,255,0.1); }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; }
 
-        /* 3. 中間聊天區 (Chat) */
-        #chat-container { flex: 1; background: var(--bg-chat); display: flex; flex-direction: column; }
-        .chat-header { height: 48px; padding: 0 16px; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 0 rgba(0,0,0,0.2); font-weight: bold; color: white; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px 0; }
-        .msg-group { padding: 2px 16px; display: flex; gap: 16px; margin-top: 15px; position: relative; }
-        .msg-group:hover { background: rgba(0,0,0,0.02); }
+        /* 聊天區域 */
+        #chat { flex: 1; background: var(--bg-chat); display: flex; flex-direction: column; }
+        .msg-list { flex: 1; overflow-y: auto; padding-top: 20px; }
+        .msg { padding: 4px 16px; display: flex; gap: 16px; position: relative; }
+        .msg:hover { background: var(--msg-hover); }
         .msg-avatar { width: 40px; height: 40px; border-radius: 50%; margin-top: 4px; }
-        .msg-body { flex: 1; }
-        .msg-user { color: white; font-weight: 500; margin-right: 8px; cursor: pointer; }
-        .msg-user:hover { text-decoration: underline; }
-        .msg-timestamp { font-size: 12px; color: var(--text-muted); }
-        .msg-text { color: #dbdee1; line-height: 1.3; margin-top: 2px; }
+        .msg-user { color: white; font-weight: 500; font-size: 1rem; margin-right: 8px; }
+        .msg-user:hover { text-decoration: underline; cursor: pointer; }
+        .msg-time { font-size: 12px; color: var(--text-muted); }
 
-        /* 輸入框 */
-        .input-area { padding: 0 16px 24px; }
-        .input-wrapper { background: #383a40; border-radius: 8px; padding: 11px 16px; display: flex; align-items: center; gap: 16px; }
-        #main-input { background: none; border: none; color: white; flex: 1; font-size: 1rem; outline: none; }
+        /* 輸入框 (1:1 造型) */
+        .input-box { padding: 0 16px 24px; }
+        .input-bg { background: #383a40; border-radius: 8px; padding: 11px 16px; display: flex; align-items: center; gap: 15px; }
+        #msg-in { background: none; border: none; color: white; flex: 1; outline: none; font-size: 1rem; }
 
-        /* 4. 最右側成員名單 (Member List) */
-        #member-sidebar { width: 240px; background: var(--bg-members); padding: 24px 8px; overflow-y: auto; }
-        .member-item { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
-        .member-item:hover { background: #35373c; color: #dbdee1; }
-        .member-avatar { width: 32px; height: 32px; border-radius: 50%; }
+        /* 設定頁面 (Fullscreen Overlay) */
+        #settings-overlay { position: fixed; inset: 0; background: #313338; z-index: 10000; display: none; }
+        .set-container { display: flex; height: 100%; }
+        .set-side { width: 30%; background: #2b2d31; display: flex; justify-content: flex-end; padding: 60px 20px; }
+        .set-main { width: 70%; background: #313338; padding: 60px 40px; }
+        .close-btn { width: 36px; height: 36px; border: 2px solid #b5bac1; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; position: absolute; right: 40px; top: 40px; color: #b5bac1; }
+        .close-btn:hover { background: #3f4147; color: white; }
 
-        /* 登入遮罩 */
-        #login-overlay { position: fixed; inset: 0; background: #313338; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        /* 登入畫面 */
+        #login-scr { position: fixed; inset: 0; background: #313338; z-index: 20000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-    <div id="login-overlay">
-        <img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" width="80" style="margin-bottom:20px">
-        <button onclick="login()" style="padding: 12px 24px; background: var(--discord-blurple); color: white; border: none; border-radius: 3px; font-weight: bold; cursor: pointer;">使用 Google 登入</button>
+    <div id="login-scr">
+        <img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" width="80" style="margin-bottom:30px">
+        <button onclick="login()" style="background:var(--blurple); color:white; padding:12px 30px; border:none; border-radius:3px; font-weight:bold; cursor:pointer; width: 200px;">登入帳號</button>
     </div>
 
-    <div id="server-sidebar">
-        <div class="server-icon" title="私訊"><img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png"></div>
-        <div class="divider"></div>
-        <div class="server-icon" style="background: var(--discord-blurple); border-radius: 16px;">S</div>
-        <div class="server-icon">+</div>
-    </div>
-
-    <div id="channel-sidebar">
-        <div class="server-header">𝕊𝕪𝕂_一般人的避風港 ⌵</div>
-        <div class="channel-list">
-            <div class="channel-category">資訊入口</div>
-            <div class="channel-item active" onclick="switchChannel('一般')">一般</div>
-            <div class="channel-item" onclick="switchChannel('公告')">公告</div>
-            <div class="channel-category">聊天區</div>
-            <div class="channel-item" onclick="switchChannel('廢文專區')">廢文專區</div>
-            <div class="channel-item" onclick="switchChannel('語音測試')">語音測試</div>
-        </div>
-        <div class="user-bar">
-            <img id="my-avatar" class="user-avatar" src="">
-            <div class="user-info" onclick="openSettings()">
-                <div id="my-name" class="user-name">載入中...</div>
-                <div class="user-tag">#0000</div>
+    <div id="settings-overlay">
+        <div class="close-btn" onclick="toggleSettings(false)">✕</div>
+        <div class="set-container">
+            <div class="set-side">
+                <div style="width:180px">
+                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); margin-bottom:10px">使用者設定</div>
+                    <div style="background:#3f4147; color:white; padding:8px 10px; border-radius:4px">我的帳號</div>
+                    <div style="padding:8px 10px; color:var(--text-muted)">使用者設定檔</div>
+                </div>
             </div>
-            <div style="display:flex; gap:8px; color: var(--text-muted);">⚙️</div>
+            <div class="set-main">
+                <h2 style="color:white; margin-bottom:20px">我的帳號</h2>
+                <div style="background:#1e1f22; border-radius:8px; overflow:hidden">
+                    <div style="height:100px; background:var(--blurple)"></div>
+                    <div style="padding:16px; position:relative; display:flex; justify-content:space-between">
+                        <img id="set-avatar" src="" style="width:80px; height:80px; border-radius:50%; border:6px solid #1e1f22; position:absolute; top:-40px; left:16px">
+                        <div style="margin-left:90px">
+                            <div id="set-name" style="color:white; font-size:20px; font-weight:bold">Name</div>
+                            <div style="color:var(--text-muted)">#0000</div>
+                        </div>
+                        <button style="background:var(--blurple); color:white; border:none; padding:8px 16px; border-radius:3px">編輯個人檔案</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="chat-container">
-        <div class="chat-header"># <span id="chan-title">一般</span></div>
-        <div id="messages"></div>
-        <div class="input-area">
-            <div class="input-wrapper">
+    <div id="server-list">
+        <div class="s-icon active"><img src="https://cdn.pixabay.com/photo/2021/02/11/15/40/discord-6005736_1280.png" width="24"></div>
+        <div style="width:32px; height:2px; background:#35363c; margin:4px 0"></div>
+        <div class="s-icon">S</div>
+        <div class="s-icon" style="color:#23a559">+</div>
+    </div>
+
+    <div id="channel-bar">
+        <div class="header">𝕊𝕪𝕂_一般人的避風港 ⌵</div>
+        <div class="c-items">
+            <div class="cat">資訊入口</div>
+            <div class="c-item active">一般</div>
+            <div class="c-item">公告</div>
+            <div class="cat">文字頻道</div>
+            <div class="c-item">廢文專區</div>
+        </div>
+        <div id="user-bar">
+            <div class="u-info" onclick="toggleSettings(true)">
+                <img id="my-avatar" class="avatar" src="">
+                <div style="overflow:hidden">
+                    <div id="my-name" style="color:white; font-size:14px; font-weight:bold; white-space:nowrap">載入中...</div>
+                    <div style="font-size:12px; color:var(--text-muted)">線上</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; color:var(--text-muted); cursor:pointer">⚙️</div>
+        </div>
+    </div>
+
+    <div id="chat">
+        <div class="header" style="box-shadow: 0 1px 0 rgba(0,0,0,0.2);"># 一般</div>
+        <div id="msgs" class="msg-list"></div>
+        <div class="input-box">
+            <div class="input-bg">
                 <div style="background:#b5bac1; color:#313338; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer">+</div>
-                <input id="main-input" type="text" placeholder="傳送訊息..." onkeypress="if(event.key==='Enter')send()">
+                <input id="msg-in" type="text" placeholder="傳送訊息到 #一般" onkeypress="if(event.key==='Enter')send()">
             </div>
         </div>
-    </div>
-
-    <div id="member-sidebar">
-        <div style="font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 0 8px 8px;">線上成員 — <span id="online-count">0</span></div>
-        <div id="member-list"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // Firebase 設定 (請確認貼上你自己的)
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyD4rw-eMW1Fn4CgK6ho_aB-LYq9GeaXWzw",
             authDomain: "beta-discord.firebaseapp.com",
@@ -140,61 +156,49 @@
         firebase.initializeApp(firebaseConfig);
         const socket = io();
         let myUser = null;
-        let currentChannel = '一般';
 
         function login() { firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-
+        
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
                 myUser = user;
                 document.getElementById('my-name').innerText = user.displayName;
                 document.getElementById('my-avatar').src = user.photoURL;
-                document.getElementById('login-overlay').style.display = 'none';
-                socket.emit('join channel', currentChannel);
-                socket.emit('set profile', { name: user.displayName, avatar: user.photoURL });
+                document.getElementById('set-name').innerText = user.displayName;
+                document.getElementById('set-avatar').src = user.photoURL;
+                document.getElementById('login-scr').style.display = 'none';
+                socket.emit('join channel', '一般');
             } else {
-                document.getElementById('login-overlay').style.display = 'flex';
+                document.getElementById('login-scr').style.display = 'flex';
             }
         });
 
-        function switchChannel(name) {
-            currentChannel = name;
-            document.getElementById('chan-title').innerText = name;
-            document.querySelectorAll('.channel-item').forEach(el => el.classList.toggle('active', el.innerText === name));
-            document.getElementById('messages').innerHTML = '';
-            socket.emit('join channel', name);
-        }
-
         function send() {
-            const val = document.getElementById('main-input').value;
+            const val = document.getElementById('msg-in').value;
             if(!val.trim()) return;
-            socket.emit('chat message', { name: myUser.displayName, avatar: myUser.photoURL, text: val, channel: currentChannel });
-            document.getElementById('main-input').value = '';
+            socket.emit('chat message', { name: myUser.displayName, avatar: myUser.photoURL, text: val, channel: '一般' });
+            document.getElementById('msg-in').value = '';
         }
 
-        socket.on('chat message', data => { if(data.channel === currentChannel) renderMsg(data); });
-        socket.on('load history', docs => docs.forEach(renderMsg));
-        socket.on('update users', users => {
-            document.getElementById('online-count').innerText = users.length;
-            document.getElementById('member-list').innerHTML = users.map(u => `
-                <div class="member-item"><img class="member-avatar" src="${u.avatar}"> <span>${u.name}</span></div>
-            `).join('');
-        });
+        socket.on('chat message', renderMsg);
+        socket.on('load history', docs => { document.getElementById('msgs').innerHTML = ''; docs.forEach(renderMsg); });
 
         function renderMsg(data) {
-            const list = document.getElementById('messages');
             const div = document.createElement('div');
-            div.className = 'msg-group';
+            div.className = 'msg';
             div.innerHTML = `
                 <img class="msg-avatar" src="${data.avatar}">
-                <div class="msg-body">
-                    <span class="msg-user">${data.name}</span>
-                    <span class="msg-timestamp">${data.timeStr || ''}</span>
-                    <div class="msg-text">${marked.parse(data.text || '')}</div>
+                <div>
+                    <div><span class="msg-user">${data.name}</span><span class="msg-time">${data.timeStr || ''}</span></div>
+                    <div style="color:#dbdee1; margin-top:2px">${marked.parse(data.text || '')}</div>
                 </div>
             `;
-            list.appendChild(div);
-            list.scrollTop = list.scrollHeight;
+            document.getElementById('msgs').appendChild(div);
+            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+        }
+
+        function toggleSettings(show) {
+            document.getElementById('settings-overlay').style.display = show ? 'block' : 'none';
         }
     </script>
 </body>
