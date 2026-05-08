@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Ultimate Pro</title>
+    <title>Discord Ultimate Experience</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -12,144 +12,90 @@
         :root {
             --bg-servers: #1e1f22; --bg-channels: #2b2d31; --bg-chat: #313338;
             --bg-user: #232428; --blurple: #5865f2; --text-normal: #dbdee1;
-            --text-muted: #949ba4; --danger: #ed4245;
+            --text-muted: #949ba4; --danger: #ed4245; --bg-overlay: rgba(0,0,0,0.85);
         }
 
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'gg sans', sans-serif; display: flex; height: 100vh; background: var(--bg-servers); color: var(--text-normal); overflow: hidden; }
+        * { box-sizing: border-box; -webkit-user-drag: none; }
+        body { margin: 0; font-family: 'gg sans', 'Noto Sans TC', sans-serif; display: flex; height: 100vh; background: var(--bg-servers); color: var(--text-normal); overflow: hidden; }
 
-        /* 伺服器列表互動 */
-        #server-list { width: 72px; display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; flex-shrink: 0; }
-        .s-icon { width: 48px; height: 48px; background: #313338; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: #23a559; position: relative; }
-        .s-icon:hover { border-radius: 16px; background: var(--blurple); color: white; }
-        .s-icon.active { border-radius: 16px; background: var(--blurple); color: white; }
-        .s-icon.active::before { content: ""; position: absolute; left: -12px; width: 4px; height: 40px; background: white; border-radius: 0 4px 4px 0; }
+        /* 右鍵選單樣式 */
+        #context-menu { position: fixed; width: 188px; background: #111214; border-radius: 4px; padding: 6px; z-index: 10001; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.24); }
+        .menu-item { padding: 6px 8px; color: #b5bac1; font-size: 14px; border-radius: 2px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .menu-item:hover { background: var(--blurple); color: white; }
+        .menu-item.red:hover { background: var(--danger); }
 
-        /* 頻道與個人欄 */
-        #channel-bar { width: 240px; background: var(--bg-channels); display: flex; flex-direction: column; }
-        .header { height: 48px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; font-weight: bold; color: white; border-bottom: 1px solid rgba(0,0,0,0.2); cursor: pointer; }
-        .c-scroller { flex: 1; padding: 10px 8px; }
-        .c-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text-muted); margin-bottom: 2px; }
-        .c-item:hover { background: rgba(78, 80, 88, 0.3); color: #dbdee1; }
-        .c-item.active { background: rgba(78, 80, 88, 0.6); color: white; }
+        /* 訊息群組化樣式 */
+        .msg-group { padding: 2px 16px; display: flex; gap: 16px; margin-top: 1.0625rem; transition: background 0.1s; }
+        .msg-group:hover { background: rgba(0,0,0,0.02); }
+        .msg-group.compact { margin-top: 0; padding-top: 2px; padding-bottom: 2px; }
+        .msg-group.compact .msg-avatar { visibility: hidden; height: 0; }
+        .msg-group.compact .msg-header { display: none; }
+        .msg-content { flex: 1; padding-left: 0; }
+        .msg-group.compact .msg-text { padding-left: 56px; margin-top: 0; }
 
-        /* 個人資料欄互動 */
-        .user-panel { background: var(--bg-user); height: 52px; padding: 0 8px; display: flex; align-items: center; gap: 8px; }
-        .u-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
-        .u-btn:hover { background: rgba(255,255,255,0.1); color: #dbdee1; }
-        .u-btn.off { color: var(--danger); }
+        /* 側邊欄與圖示動畫 */
+        .s-icon { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .s-icon:active { transform: translateY(2px); }
+        .u-btn { transition: transform 0.1s; }
+        .u-btn:active { transform: scale(0.9); }
 
-        /* 設定彈窗 (1:1 復刻) */
-        #settings-modal { position: fixed; inset: 0; background: #313338; z-index: 10000; display: none; animation: slideUp 0.2s ease-out; }
-        @keyframes slideUp { from { transform: scale(1.1); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
-        .set-layout { display: flex; height: 100%; }
-        .set-nav { width: 35%; background: #2b2d31; display: flex; justify-content: flex-end; padding: 60px 20px; }
-        .set-content { width: 65%; padding: 60px 40px; position: relative; overflow-y: auto; }
-        .nav-group { width: 190px; }
-        .nav-item { padding: 6px 10px; border-radius: 4px; color: var(--text-muted); cursor: pointer; margin-bottom: 2px; font-size: 14px; }
-        .nav-item:hover { background: rgba(78, 80, 88, 0.3); }
-        .nav-item.active { background: rgba(78, 80, 88, 0.6); color: white; }
-        
-        /* 聊天區 */
-        #chat { flex: 1; background: var(--bg-chat); display: flex; flex-direction: column; }
-        #msgs { flex: 1; overflow-y: auto; }
-        .chat-input { padding: 0 16px 24px; }
-        .input-inner { background: #383a40; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 15px; }
-        input { background: none; border: none; color: white; flex: 1; outline: none; font-size: 1rem; }
+        /* 修正版輸入框 */
+        .input-inner { transition: box-shadow 0.2s; }
+        .input-inner:focus-within { box-shadow: 0 0 0 2px var(--blurple); }
+
+        /* Firebase 登入牆美化 */
+        #login-scr { background: url('https://discord.com/assets/ee7c382d925765482c30.png'); background-size: cover; }
+        .login-card { background: #313338; padding: 32px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); text-align: center; width: 480px; }
     </style>
 </head>
 <body>
 
-    <div id="login-scr" style="position:fixed; inset:0; background:#313338; z-index:20000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <i class="fab fa-discord" style="font-size: 80px; color: var(--blurple); margin-bottom: 20px;"></i>
-        <button onclick="login()" style="background:var(--blurple); color:white; border:none; padding:12px 40px; border-radius:3px; font-weight:bold; cursor:pointer;">進入 Coffee 的避風港</button>
+    <audio id="snd-msg" src="https://assets.mixkit.io/active_storage/sfx/2358/2358-preview.mp3"></audio>
+    <audio id="snd-push" src="https://www.soundjay.com/buttons/sounds/button-37.mp3"></audio>
+
+    <div id="context-menu">
+        <div class="menu-item">回覆 <i class="fas fa-reply"></i></div>
+        <div class="menu-item">編輯訊息 <i class="fas fa-pen"></i></div>
+        <div class="menu-item">複製訊息連結 <i class="fas fa-link"></i></div>
+        <div class="menu-item red" id="menu-delete">刪除訊息 <i class="fas fa-trash"></i></div>
     </div>
 
-    <div id="settings-modal">
-        <div class="set-layout">
-            <div class="set-nav">
-                <div class="nav-group">
-                    <div style="font-size:12px; font-weight:bold; color:var(--text-muted); padding:0 10px 8px">使用者設定</div>
-                    <div class="nav-item active">我的帳號</div>
-                    <div class="nav-item">使用者設定檔</div>
-                    <div class="nav-item">隱私與安全</div>
-                    <div class="nav-item" style="margin-top:20px; color:var(--danger)" onclick="logout()">登出</div>
-                </div>
-            </div>
-            <div class="set-content">
-                <div onclick="toggleSettings(false)" style="position:absolute; right:40px; top:40px; cursor:pointer; text-align:center;">
-                    <div style="width:36px; height:36px; border:2px solid #b5bac1; border-radius:50%; line-height:32px; color:#b5bac1">✕</div>
-                    <div style="font-size:12px; color:#b5bac1; margin-top:8px">ESC</div>
-                </div>
-                <h2 style="color:white">我的帳號</h2>
-                <div style="background:#1e1f22; border-radius:8px; overflow:hidden; width: 660px;">
-                    <div id="set-banner" style="height:100px; background:var(--blurple)"></div>
-                    <div style="padding:16px; position:relative;">
-                        <img id="set-avatar" src="" style="width:80px; height:80px; border-radius:50%; border:6px solid #1e1f22; position:absolute; top:-40px; left:16px">
-                        <div style="margin: 40px 0 20px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div id="set-name" style="font-size:20px; font-weight:bold; color:white">Name</div>
-                                <div style="color:var(--text-muted)">#0001</div>
-                            </div>
-                            <button style="background:var(--blurple); color:white; border:none; padding:8px 16px; border-radius:3px; cursor:pointer">編輯個人使用者設定檔</button>
-                        </div>
-                        <div style="background:#2b2d31; border-radius:8px; padding:16px;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:15px">
-                                <div><div style="font-size:12px; color:var(--text-muted)">使用者名稱</div><div id="set-name2" style="color:white">Name</div></div>
-                                <button style="background:#4e5058; color:white; border:none; padding:4px 12px; border-radius:3px">編輯</button>
-                            </div>
-                            <div style="display:flex; justify-content:space-between">
-                                <div><div style="font-size:12px; color:var(--text-muted)">電子郵件</div><div style="color:white">*********@gmail.com</div></div>
-                                <button style="background:#4e5058; color:white; border:none; padding:4px 12px; border-radius:3px">顯示</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div id="login-scr" style="position:fixed; inset:0; z-index:20000; display:flex; align-items:center; justify-content:center;">
+        <div class="login-card">
+            <h2 style="color:white; margin:0 0 8px">歡迎回來！</h2>
+            <p style="color:var(--text-muted); margin-bottom:20px">很高興再次見到你！</p>
+            <button onclick="login()" style="width:100%; background:var(--blurple); color:white; border:none; padding:12px; border-radius:3px; font-weight:bold; cursor:pointer;">登入</button>
         </div>
     </div>
 
     <div id="server-list">
-        <div class="s-icon active" onclick="clickServer('Coffee', this)"><i class="fab fa-discord"></i></div>
-        <div style="width:32px; height:2px; background:#35363c"></div>
-        <div class="s-icon" onclick="clickServer('Gaming', this)">G</div>
-        <div class="s-icon" onclick="alert('新增伺服器功能開發中！')"><i class="fas fa-plus"></i></div>
+        <div class="s-icon-wrap"><div class="s-icon active" style="background:var(--blurple); color:white"><i class="fab fa-discord"></i></div></div>
+        <div style="width:32px; height:2px; background:#35363c; margin:8px 0"></div>
+        <div class="s-icon-wrap"><div class="s-icon">S</div></div>
     </div>
 
     <div id="channel-bar">
-        <div class="header" onclick="alert('伺服器選單')"><span id="srv-name">Coffee's World</span> <i class="fas fa-chevron-down"></i></div>
+        <div class="header-shadow">𝕊𝕪𝕂_一般人的避風港 <i class="fas fa-chevron-down"></i></div>
         <div class="c-scroller">
-            <div class="c-item active" onclick="switchChan('一般', this)"><i class="fas fa-hashtag"></i> 一般</div>
-            <div class="c-item" onclick="switchChan('公告', this)"><i class="fas fa-hashtag"></i> 公告</div>
-            <div class="c-item" onclick="switchChan('閒聊', this)"><i class="fas fa-hashtag"></i> 閒聊</div>
+            <div class="c-group-label">文字頻道 <i class="fas fa-plus"></i></div>
+            <div class="c-item active"><i class="fas fa-hashtag"></i> 一般</div>
+            <div class="c-item"><i class="fas fa-hashtag"></i> 公告</div>
         </div>
         <div class="user-panel">
-            <div style="position:relative; cursor:pointer" onclick="toggleSettings(true)">
-                <img id="my-avatar" src="" style="width:32px; height:32px; border-radius:50%">
-                <div style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; background:#23a559; border:2px solid var(--bg-user); border-radius:50%"></div>
-            </div>
-            <div style="flex:1; cursor:pointer" onclick="toggleSettings(true)">
-                <div id="my-name" style="font-size:14px; font-weight:bold; color:white">Loading...</div>
-                <div style="font-size:12px; color:var(--text-muted)">線上</div>
-            </div>
-            <div class="u-btn" id="mic-btn" onclick="toggleIcon(this)"><i class="fas fa-microphone"></i></div>
-            <div class="u-btn" id="head-btn" onclick="toggleIcon(this)"><i class="fas fa-headphones"></i></div>
-            <div class="u-btn" onclick="toggleSettings(true)"><i class="fas fa-cog"></i></div>
+            <img id="my-avatar" src="" style="width:32px; height:32px; border-radius:50%">
+            <div class="u-name-area"><div id="my-name" class="u-name">Loading...</div><div style="font-size:12px; color:var(--text-muted)">線上</div></div>
+            <div class="u-btn" onclick="playPush()"><i class="fas fa-microphone"></i></div>
+            <div class="u-btn" onclick="playPush()"><i class="fas fa-cog"></i></div>
         </div>
     </div>
 
     <div id="chat">
-        <div class="header"># <span id="chan-title">一般</span></div>
-        <div id="msgs"></div>
-        <div class="chat-input">
-            <div class="input-inner">
-                <i class="fas fa-plus-circle" style="color:#b5bac1; cursor:pointer"></i>
-                <input id="msg-in" type="text" placeholder="傳送訊息..." onkeypress="if(event.key==='Enter')send()">
-                <div style="display:flex; gap:12px; color:#b5bac1">
-                    <i class="fas fa-gift"></i>
-                    <i class="fas fa-smile"></i>
-                </div>
+        <div class="header-shadow"># 一般</div>
+        <div id="msgs" class="msg-scroller" onclick="closeMenu()"></div>
+        <div class="chat-input-wrap">
+            <div class="chat-input-inner">
+                <div class="plus-btn"><i class="fas fa-plus-circle"></i></div>
+                <input id="msg-in" type="text" placeholder="傳送訊息到 #一般" onkeypress="if(event.key==='Enter')send()">
             </div>
         </div>
     </div>
@@ -166,86 +112,83 @@
         };
         firebase.initializeApp(firebaseConfig);
         const socket = io();
-        let user = null;
+        let lastUser = "";
+        let currentMenuMsgId = null;
 
         function login() { firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-        function logout() { firebase.auth().signOut().then(() => location.reload()); }
 
         firebase.auth().onAuthStateChanged(u => {
             if(u) {
-                user = u;
                 document.getElementById('my-name').innerText = u.displayName;
                 document.getElementById('my-avatar').src = u.photoURL;
-                document.getElementById('set-name').innerText = u.displayName;
-                document.getElementById('set-name2').innerText = u.displayName;
-                document.getElementById('set-avatar').src = u.photoURL;
                 document.getElementById('login-scr').style.display = 'none';
                 socket.emit('join channel', '一般');
-            } else {
-                document.getElementById('login-scr').style.display = 'flex';
             }
         });
 
-        // 按鈕互動邏輯
-        function toggleIcon(btn) {
-            btn.classList.toggle('off');
-            const icon = btn.querySelector('i');
-            if(btn.classList.contains('off')) {
-                icon.className = icon.className.replace('microphone', 'microphone-slash').replace('headphones', 'headset-slash');
-            } else {
-                icon.className = icon.className.replace('-slash', '');
-            }
-        }
-
-        function clickServer(name, el) {
-            document.querySelectorAll('.s-icon').forEach(i => i.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('srv-name').innerText = name + "'s World";
-        }
-
-        function toggleSettings(show) {
-            document.getElementById('settings-modal').style.display = show ? 'block' : 'none';
-        }
-
-        function switchChan(name, el) {
-            document.querySelectorAll('.c-item').forEach(i => i.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('chan-title').innerText = name;
-            document.getElementById('msgs').innerHTML = '';
-            socket.emit('join channel', name);
-        }
+        function playPush() { document.getElementById('snd-push').play(); }
 
         function send() {
             const val = document.getElementById('msg-in').value;
             if(!val.trim()) return;
-            socket.emit('chat message', { name: user.displayName, avatar: user.photoURL, text: val, channel: document.getElementById('chan-title').innerText });
+            socket.emit('chat message', { name: firebase.auth().currentUser.displayName, avatar: firebase.auth().currentUser.photoURL, text: val, channel: '一般' });
             document.getElementById('msg-in').value = '';
+            document.getElementById('snd-push').play();
         }
 
         socket.on('chat message', data => {
-            if(data.channel === document.getElementById('chan-title').innerText) {
-                const div = document.createElement('div');
-                div.style.padding = '4px 16px';
-                div.style.display = 'flex';
-                div.style.gap = '16px';
-                div.innerHTML = `<img src="${data.avatar}" style="width:40px; height:40px; border-radius:50%"><div><span style="color:white; font-weight:bold">${data.name}</span><div style="color:#dbdee1">${marked.parse(data.text)}</div></div>`;
-                document.getElementById('msgs').appendChild(div);
-                document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+            renderMsg(data);
+            if(data.name !== firebase.auth().currentUser.displayName) {
+                document.getElementById('snd-msg').play(); // 收到別人的訊息才響聲
             }
         });
 
         socket.on('load history', docs => {
             document.getElementById('msgs').innerHTML = '';
-            docs.forEach(d => {
-                const div = document.createElement('div');
-                div.style.padding = '4px 16px';
-                div.style.display = 'flex';
-                div.style.gap = '16px';
-                div.innerHTML = `<img src="${d.avatar}" style="width:40px; height:40px; border-radius:50%"><div><span style="color:white; font-weight:bold">${d.name}</span><div style="color:#dbdee1">${marked.parse(d.text)}</div></div>`;
-                document.getElementById('msgs').appendChild(div);
-            });
-            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+            lastUser = "";
+            docs.forEach(renderMsg);
         });
+
+        function renderMsg(data) {
+            const list = document.getElementById('msgs');
+            const isCompact = (data.name === lastUser);
+            const div = document.createElement('div');
+            div.className = `msg-group ${isCompact ? 'compact' : ''}`;
+            div.oncontextmenu = (e) => openMenu(e, data._id);
+            
+            div.innerHTML = `
+                <img class="msg-avatar" src="${data.avatar}">
+                <div class="msg-content">
+                    <div class="msg-header">
+                        <span class="msg-user" style="color:white; font-weight:bold">${data.name}</span>
+                        <span style="font-size:12px; color:var(--text-muted)">${data.timeStr || ''}</span>
+                    </div>
+                    <div class="msg-text" style="color:#dbdee1">${marked.parse(data.text)}</div>
+                </div>
+            `;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+            lastUser = data.name;
+        }
+
+        // 右鍵選單邏輯
+        function openMenu(e, id) {
+            e.preventDefault();
+            currentMenuMsgId = id;
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'block';
+            menu.style.left = e.pageX + 'px';
+            menu.style.top = e.pageY + 'px';
+        }
+
+        function closeMenu() { document.getElementById('context-menu').style.display = 'none'; }
+
+        document.getElementById('menu-delete').onclick = () => {
+            if(confirm('確定刪除？')) socket.emit('delete message', currentMenuMsgId);
+            closeMenu();
+        };
+
+        socket.on('message deleted', () => location.reload());
     </script>
 </body>
 </html>
